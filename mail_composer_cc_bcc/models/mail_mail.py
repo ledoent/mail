@@ -38,13 +38,11 @@ class MailMail(models.Model):
             return True
         return tools.str2bool(os.environ.get("EXPOSE_X_ODOO_BCC") or "", False)
 
-    def _prepare_outgoing_list(
-        self, mail_server=False, recipients_follower_status=None
-    ):
+    # 19.0 renamed core's kwarg `recipients_follower_status` -> `doc_to_followers`.
+    def _prepare_outgoing_list(self, mail_server=False, doc_to_followers=None):
         # First, return if we're not coming from the Mail Composer
         res = super()._prepare_outgoing_list(
-            mail_server=mail_server,
-            recipients_follower_status=recipients_follower_status,
+            mail_server=mail_server, doc_to_followers=doc_to_followers
         )
         is_from_composer = self.env.context.get("is_from_composer", False)
 
@@ -96,7 +94,13 @@ class MailMail(models.Model):
                 }
             )
 
-        # Propagate recipients to override smtp_to `_prepare_email_message`
+        # Propagate recipients to override smtp_to `_prepare_email_message`.
+        #
+        # Keep this, NOT the `res.pop()` the 19.0 migration branch carried: the
+        # pop predates the Bcc-leak fix, and ir_mail_server now *requires* this
+        # context key -- it raises rather than falling back to super()'s
+        # To+Cc+Bcc envelope, which is what used to leak Bcc and duplicate
+        # sends. Dropping it makes every composer send raise ValueError.
         self.env.context = {**self.env.context, "recipients": list(recipients)}
 
         return res
