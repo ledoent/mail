@@ -1,0 +1,222 @@
+<odoo>
+    <record id="connection_form" model="ir.ui.view">
+        <field name="name">mail.ses.connection.form</field>
+        <field name="model">mail.ses.connection</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button
+                        name="action_check"
+                        type="object"
+                        string="Check configuration"
+                        groups="base.group_system"
+                    />
+                    <button
+                        name="action_enable"
+                        type="object"
+                        string="Verify and enable"
+                        groups="base.group_system"
+                    />
+                    <field name="health" widget="statusbar" />
+                </header>
+                <sheet>
+                    <group>
+                        <field name="name" />
+                        <field name="company_id" />
+                        <field name="enabled" />
+                        <field name="administrator_id" />
+                    </group>
+                    <group string="AWS connection">
+                        <field name="region" />
+                        <field name="account_id" />
+                        <field name="identity" />
+                        <field name="topic_arn" />
+                        <field name="queue_url" />
+                        <field name="dead_letter_queue_url" />
+                    </group>
+                    <group string="Tracking">
+                        <field name="configuration_set" />
+                        <field name="engagement_configuration_set" />
+                        <field name="engagement_enabled" />
+                    </group>
+                    <group string="Health">
+                        <field name="last_check" />
+                        <field name="last_poll" />
+                        <field name="last_sync" />
+                        <field name="pending_count" />
+                        <field name="oldest_event_seconds" />
+                        <field name="dead_letter_count" />
+                        <field name="diagnostic" />
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="attempt_list" model="ir.ui.view">
+        <field name="name">mail.ses.attempt.list</field>
+        <field name="model">mail.ses.attempt</field>
+        <field name="arch" type="xml">
+            <list create="false" delete="false">
+                <field name="create_date" />
+                <field name="recipient" />
+                <field name="channel" />
+                <field name="transport_state" />
+                <field name="delivery_state" />
+                <field name="opened_at" />
+                <field name="clicked_at" />
+                <field name="complaint_at" />
+            </list>
+        </field>
+    </record>
+    <record id="attempt_form" model="ir.ui.view">
+        <field name="name">mail.ses.attempt.form</field>
+        <field name="model">mail.ses.attempt</field>
+        <field name="arch" type="xml">
+            <form create="false" delete="false">
+                <header>
+                    <button
+                        name="action_allow_retry"
+                        type="object"
+                        string="Authorize another attempt"
+                        confirm="An uncertain delivery may already have arrived. Authorize another attempt?"
+                    />
+                </header>
+                <sheet>
+                    <group>
+                        <field name="connection_id" readonly="1" />
+                        <field name="recipient" readonly="1" />
+                        <field name="channel" readonly="1" />
+                        <field name="transport_state" readonly="1" />
+                        <field name="delivery_state" readonly="1" />
+                        <field name="opened_at" readonly="1" />
+                        <field name="clicked_at" readonly="1" />
+                        <field name="complaint_at" readonly="1" />
+                        <field name="error_code" readonly="1" />
+                        <field name="retry_reason" />
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="suppression_form" model="ir.ui.view">
+        <field name="name">mail.ses.suppression.form</field>
+        <field name="model">mail.ses.suppression</field>
+        <field name="arch" type="xml">
+            <form create="false" delete="false">
+                <header>
+                    <button
+                        name="action_resolve"
+                        type="object"
+                        string="Resolve and unblock"
+                        confirm="Resume sending to this address after the documented review?"
+                        invisible="not active"
+                    />
+                </header>
+                <sheet>
+                    <group>
+                        <field name="email" readonly="1" />
+                        <field name="connection_id" readonly="1" />
+                        <field name="reason" readonly="1" />
+                        <field name="active" readonly="1" />
+                        <field name="aws_sync_pending" />
+                        <field name="source" readonly="1" />
+                        <field name="resolution" />
+                        <field name="recipient_confirmation" />
+                        <field name="resolved_at" />
+                        <field name="resolved_by" />
+                    </group>
+                </sheet>
+                <chatter />
+            </form>
+        </field>
+    </record>
+    <record id="delivery_wizard_form" model="ir.ui.view">
+        <field name="name">mail.ses.delivery.wizard.form</field>
+        <field name="model">mail.ses.delivery.wizard</field>
+        <field name="arch" type="xml">
+            <form create="false" edit="false">
+                <div
+                    class="alert alert-info"
+                    role="status"
+                >Delivered means accepted by the recipient's mail server. Opens and clicks are observations, not proof of reading. An empty list means no SES attempt has been recorded yet.</div>
+                <field name="line_ids">
+                    <list create="false" delete="false">
+                        <field name="recipient" />
+                        <field name="channel" />
+                        <field name="delivery" />
+                        <field name="opened_at" />
+                        <field name="clicked_at" />
+                        <field name="attention" />
+                    </list>
+                </field>
+                <footer>
+                    <button string="Close" special="cancel" />
+                </footer>
+            </form>
+        </field>
+    </record>
+    <record id="server_form" model="ir.ui.view">
+        <field name="name">ir.mail_server.ses</field>
+        <field name="model">ir.mail_server</field>
+        <field name="inherit_id" ref="base.ir_mail_server_form" />
+        <field name="arch" type="xml">
+            <field name="smtp_host" position="after">
+                <field name="ses_connection_id" />
+            </field>
+        </field>
+    </record>
+    <record id="partner_form" model="ir.ui.view">
+        <field name="name">res.partner.ses</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form" />
+        <field name="arch" type="xml">
+            <field name="email" position="after">
+                <field name="ses_email_status" groups="base.group_user" />
+            </field>
+        </field>
+    </record>
+    <record id="connection_action" model="ir.actions.act_window">
+        <field name="name">SES connections</field>
+        <field name="res_model">mail.ses.connection</field>
+        <field name="view_mode">list,form</field>
+    </record>
+    <record id="attempt_action" model="ir.actions.act_window">
+        <field name="name">SES deliveries</field>
+        <field name="res_model">mail.ses.attempt</field>
+        <field name="view_mode">list,form</field>
+    </record>
+    <record id="suppression_action" model="ir.actions.act_window">
+        <field name="name">Blocked addresses</field>
+        <field name="res_model">mail.ses.suppression</field>
+        <field name="view_mode">list,form</field>
+    </record>
+    <record id="event_action" model="ir.actions.act_window">
+        <field name="name">SES events</field>
+        <field name="res_model">mail.ses.event</field>
+        <field name="view_mode">list,form</field>
+    </record>
+    <menuitem
+        id="ses_menu"
+        name="SES mail"
+        groups="base.group_system,group_ses_manager"
+    />
+    <menuitem
+        id="connection_menu"
+        name="Connections"
+        parent="ses_menu"
+        action="connection_action"
+    />
+    <menuitem
+        id="attempt_menu"
+        name="Deliveries"
+        parent="ses_menu"
+        action="attempt_action"
+    />
+    <menuitem
+        id="suppression_menu"
+        name="Blocked addresses"
+        parent="ses_menu"
+        action="suppression_action"
+    />
+    <menuitem id="event_menu" name="Events" parent="ses_menu" action="event_action" />
+</odoo>

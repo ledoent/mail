@@ -1,0 +1,408 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Odoo SES SMTP event pipeline v1. Dedicated stack per database. Does not modify sender identities or feedback forwarding.",
+  "Parameters": {
+    "NamePrefix": {
+      "Type": "String",
+      "AllowedPattern": "[a-zA-Z0-9_-]{1,40}",
+      "Description": "Unique database/environment prefix"
+    },
+    "AlarmTopicArn": {
+      "Type": "String",
+      "Description": "Existing operational alarm SNS topic ARN"
+    }
+  },
+  "Resources": {
+    "EventsQueue": {
+      "Type": "AWS::SQS::Queue",
+      "DeletionPolicy": "Retain",
+      "UpdateReplacePolicy": "Retain",
+      "Properties": {
+        "MessageRetentionPeriod": 604800,
+        "SqsManagedSseEnabled": true,
+        "VisibilityTimeout": 120,
+        "RedrivePolicy": {
+          "deadLetterTargetArn": {
+            "Fn::GetAtt": ["DeadLetterQueue", "Arn"]
+          },
+          "maxReceiveCount": 5
+        }
+      }
+    },
+    "DeadLetterQueue": {
+      "Type": "AWS::SQS::Queue",
+      "DeletionPolicy": "Retain",
+      "UpdateReplacePolicy": "Retain",
+      "Properties": {
+        "MessageRetentionPeriod": 1209600,
+        "SqsManagedSseEnabled": true,
+        "VisibilityTimeout": 120
+      }
+    },
+    "DeliveryFailureQueue": {
+      "Type": "AWS::SQS::Queue",
+      "DeletionPolicy": "Retain",
+      "UpdateReplacePolicy": "Retain",
+      "Properties": {
+        "MessageRetentionPeriod": 1209600,
+        "SqsManagedSseEnabled": true,
+        "VisibilityTimeout": 120
+      }
+    },
+    "EventsTopic": {
+      "Type": "AWS::SNS::Topic"
+    },
+    "TopicPolicy": {
+      "Type": "AWS::SNS::TopicPolicy",
+      "Properties": {
+        "Topics": [
+          {
+            "Ref": "EventsTopic"
+          }
+        ],
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "ses.amazonaws.com"
+              },
+              "Action": "sns:Publish",
+              "Resource": {
+                "Ref": "EventsTopic"
+              },
+              "Condition": {
+                "StringEquals": {
+                  "AWS:SourceAccount": {
+                    "Ref": "AWS::AccountId"
+                  }
+                },
+                "ArnLike": {
+                  "AWS:SourceArn": {
+                    "Fn::Sub": "arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:configuration-set/${NamePrefix}-*"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "QueuePolicy": {
+      "Type": "AWS::SQS::QueuePolicy",
+      "Properties": {
+        "Queues": [
+          {
+            "Ref": "EventsQueue"
+          },
+          {
+            "Ref": "DeliveryFailureQueue"
+          }
+        ],
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "sns.amazonaws.com"
+              },
+              "Action": "sqs:SendMessage",
+              "Resource": [
+                {
+                  "Fn::GetAtt": ["EventsQueue", "Arn"]
+                },
+                {
+                  "Fn::GetAtt": ["DeliveryFailureQueue", "Arn"]
+                }
+              ],
+              "Condition": {
+                "ArnEquals": {
+                  "aws:SourceArn": {
+                    "Ref": "EventsTopic"
+                  }
+                },
+                "StringEquals": {
+                  "aws:SourceAccount": {
+                    "Ref": "AWS::AccountId"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "Subscription": {
+      "Type": "AWS::SNS::Subscription",
+      "DependsOn": "QueuePolicy",
+      "Properties": {
+        "TopicArn": {
+          "Ref": "EventsTopic"
+        },
+        "Protocol": "sqs",
+        "Endpoint": {
+          "Fn::GetAtt": ["EventsQueue", "Arn"]
+        },
+        "RawMessageDelivery": false,
+        "RedrivePolicy": {
+          "deadLetterTargetArn": {
+            "Fn::GetAtt": ["DeliveryFailureQueue", "Arn"]
+          }
+        }
+      }
+    },
+    "DeliveryConfiguration": {
+      "Type": "AWS::SES::ConfigurationSet",
+      "Properties": {
+        "Name": {
+          "Fn::Sub": "${NamePrefix}-delivery"
+        },
+        "SuppressionOptions": {
+          "SuppressedReasons": ["BOUNCE", "COMPLAINT"]
+        },
+        "ReputationOptions": {
+          "ReputationMetricsEnabled": true
+        }
+      }
+    },
+    "DeliveryConfigurationDestination": {
+      "Type": "AWS::SES::ConfigurationSetEventDestination",
+      "DependsOn": "TopicPolicy",
+      "Properties": {
+        "ConfigurationSetName": {
+          "Ref": "DeliveryConfiguration"
+        },
+        "EventDestination": {
+          "Name": "odoo-events",
+          "Enabled": true,
+          "MatchingEventTypes": [
+            "SEND",
+            "DELIVERY",
+            "DELIVERY_DELAY",
+            "BOUNCE",
+            "COMPLAINT",
+            "REJECT",
+            "RENDERING_FAILURE"
+          ],
+          "SnsDestination": {
+            "TopicARN": {
+              "Ref": "EventsTopic"
+            }
+          }
+        }
+      }
+    },
+    "EngagementConfiguration": {
+      "Type": "AWS::SES::ConfigurationSet",
+      "Properties": {
+        "Name": {
+          "Fn::Sub": "${NamePrefix}-engagement"
+        },
+        "SuppressionOptions": {
+          "SuppressedReasons": ["BOUNCE", "COMPLAINT"]
+        },
+        "ReputationOptions": {
+          "ReputationMetricsEnabled": true
+        }
+      }
+    },
+    "EngagementConfigurationDestination": {
+      "Type": "AWS::SES::ConfigurationSetEventDestination",
+      "DependsOn": "TopicPolicy",
+      "Properties": {
+        "ConfigurationSetName": {
+          "Ref": "EngagementConfiguration"
+        },
+        "EventDestination": {
+          "Name": "odoo-events",
+          "Enabled": true,
+          "MatchingEventTypes": [
+            "SEND",
+            "DELIVERY",
+            "DELIVERY_DELAY",
+            "BOUNCE",
+            "COMPLAINT",
+            "REJECT",
+            "RENDERING_FAILURE",
+            "OPEN",
+            "CLICK"
+          ],
+          "SnsDestination": {
+            "TopicARN": {
+              "Ref": "EventsTopic"
+            }
+          }
+        }
+      }
+    },
+    "RuntimePolicy": {
+      "Type": "AWS::IAM::ManagedPolicy",
+      "Properties": {
+        "Description": "Odoo SES event ingestion and reviewed suppression management; no infrastructure mutation",
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": [
+                "sqs:ReceiveMessage",
+                "sqs:DeleteMessage",
+                "sqs:ChangeMessageVisibility",
+                "sqs:GetQueueAttributes"
+              ],
+              "Resource": {
+                "Fn::GetAtt": ["EventsQueue", "Arn"]
+              }
+            },
+            {
+              "Effect": "Allow",
+              "Action": ["sqs:GetQueueAttributes"],
+              "Resource": [
+                {
+                  "Fn::GetAtt": ["DeadLetterQueue", "Arn"]
+                },
+                {
+                  "Fn::GetAtt": ["DeliveryFailureQueue", "Arn"]
+                }
+              ]
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "ses:GetAccount",
+                "ses:GetEmailIdentity",
+                "ses:GetConfigurationSet",
+                "ses:GetConfigurationSetEventDestinations",
+                "ses:ListSuppressedDestinations",
+                "ses:PutSuppressedDestination",
+                "ses:DeleteSuppressedDestination",
+                "sts:GetCallerIdentity"
+              ],
+              "Resource": "*"
+            }
+          ]
+        }
+      }
+    },
+    "BacklogAlarm": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmDescription": "SES event processing needs attention",
+        "Namespace": "AWS/SQS",
+        "MetricName": "ApproximateAgeOfOldestMessage",
+        "Dimensions": [
+          {
+            "Name": "QueueName",
+            "Value": {
+              "Fn::GetAtt": ["EventsQueue", "QueueName"]
+            }
+          }
+        ],
+        "Statistic": "Maximum",
+        "Period": 60,
+        "EvaluationPeriods": 2,
+        "Threshold": 300,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "TreatMissingData": "notBreaching",
+        "AlarmActions": [
+          {
+            "Ref": "AlarmTopicArn"
+          }
+        ]
+      }
+    },
+    "DeadLetterAlarm": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmDescription": "SES event processing needs attention",
+        "Namespace": "AWS/SQS",
+        "MetricName": "ApproximateNumberOfMessagesVisible",
+        "Dimensions": [
+          {
+            "Name": "QueueName",
+            "Value": {
+              "Fn::GetAtt": ["DeadLetterQueue", "QueueName"]
+            }
+          }
+        ],
+        "Statistic": "Maximum",
+        "Period": 60,
+        "EvaluationPeriods": 2,
+        "Threshold": 0,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "TreatMissingData": "notBreaching",
+        "AlarmActions": [
+          {
+            "Ref": "AlarmTopicArn"
+          }
+        ]
+      }
+    },
+    "DeliveryFailureAlarm": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmDescription": "SES event processing needs attention",
+        "Namespace": "AWS/SQS",
+        "MetricName": "ApproximateNumberOfMessagesVisible",
+        "Dimensions": [
+          {
+            "Name": "QueueName",
+            "Value": {
+              "Fn::GetAtt": ["DeliveryFailureQueue", "QueueName"]
+            }
+          }
+        ],
+        "Statistic": "Maximum",
+        "Period": 60,
+        "EvaluationPeriods": 2,
+        "Threshold": 0,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "TreatMissingData": "notBreaching",
+        "AlarmActions": [
+          {
+            "Ref": "AlarmTopicArn"
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "TopicArn": {
+      "Value": {
+        "Ref": "EventsTopic"
+      }
+    },
+    "QueueUrl": {
+      "Value": {
+        "Ref": "EventsQueue"
+      }
+    },
+    "DeadLetterQueueUrl": {
+      "Value": {
+        "Ref": "DeadLetterQueue"
+      }
+    },
+    "DeliveryFailureQueueUrl": {
+      "Value": {
+        "Ref": "DeliveryFailureQueue"
+      }
+    },
+    "RuntimePolicyArn": {
+      "Value": {
+        "Ref": "RuntimePolicy"
+      }
+    },
+    "DeliveryConfigurationSet": {
+      "Value": {
+        "Ref": "DeliveryConfiguration"
+      }
+    },
+    "EngagementConfigurationSet": {
+      "Value": {
+        "Ref": "EngagementConfiguration"
+      }
+    }
+  }
+}
