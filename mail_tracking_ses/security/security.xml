@@ -1,0 +1,30 @@
+<odoo>
+    <record id="group_ses_manager" model="res.groups">
+        <field name="name">SES mail administrator</field>
+        <field name="implied_ids" eval="[(4, ref('base.group_user'))]" />
+    </record>
+    <record id="connection_company_rule" model="ir.rule">
+        <field name="name">SES connections: allowed companies</field>
+        <field name="model_id" ref="model_mail_ses_connection" />
+        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="attempt_company_rule" model="ir.rule">
+        <field name="name">SES delivery journals: allowed companies</field>
+        <field name="model_id" ref="model_mail_ses_attempt" />
+        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="event_company_rule" model="ir.rule">
+        <field name="name">SES events: allowed companies</field>
+        <field name="model_id" ref="model_mail_ses_event" />
+        <field
+            name="domain_force"
+        >[('connection_id.company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="suppression_company_rule" model="ir.rule">
+        <field name="name">SES suppression: allowed companies</field>
+        <field name="model_id" ref="model_mail_ses_suppression" />
+        <field
+            name="domain_force"
+        >[('connection_id.company_id', 'in', company_ids)]</field>
+    </record>
+</odoo>

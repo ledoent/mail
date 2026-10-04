@@ -1,0 +1,16 @@
+<odoo>
+    <record id="account_move_send_wizard_form" model="ir.ui.view">
+        <field name="name">account.move.send.wizard.cc</field>
+        <field name="model">account.move.send.wizard</field>
+        <field name="inherit_id" ref="account.account_move_send_wizard_form" />
+        <field name="arch" type="xml">
+            <field name="mail_partner_ids" position="after">
+                <field
+                    name="cc_partner_ids"
+                    widget="many2many_tags_email"
+                    context="{'force_email': True, 'show_email': True}"
+                />
+            </field>
+        </field>
+    </record>
+</odoo>

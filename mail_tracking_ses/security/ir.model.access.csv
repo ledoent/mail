@@ -1,0 +1,11 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+connection_system,SES connection system,model_mail_ses_connection,base.group_system,1,1,1,1
+connection_manager,SES connection manager,model_mail_ses_connection,group_ses_manager,1,0,0,0
+attempt_system,SES attempt system,model_mail_ses_attempt,base.group_system,1,1,0,0
+attempt_manager,SES attempt manager,model_mail_ses_attempt,group_ses_manager,1,1,0,0
+event_system,SES event system,model_mail_ses_event,base.group_system,1,0,0,0
+event_manager,SES event manager,model_mail_ses_event,group_ses_manager,1,0,0,0
+suppression_system,SES suppression system,model_mail_ses_suppression,base.group_system,1,1,0,0
+suppression_manager,SES suppression manager,model_mail_ses_suppression,group_ses_manager,1,1,0,0
+delivery_wizard,SES delivery wizard,model_mail_ses_delivery_wizard,base.group_user,1,1,1,1
+delivery_line,SES delivery line,model_mail_ses_delivery_line,base.group_user,1,1,1,1

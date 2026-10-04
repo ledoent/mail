@@ -1,0 +1,13 @@
+<templates xml:space="preserve">
+    <t t-inherit="mail.Composer.extraActions" t-inherit-mode="extension">
+        <xpath expr="//div[hasclass('o-mail-Composer-mainActions')]" position="inside">
+            <button
+                t-if="props.showFullComposer and props.composer.thread and props.composer.thread.model !== 'discuss.channel'"
+                type="button"
+                class="btn btn-link text-nowrap"
+                t-on-click="onClickFullComposer"
+                title="Open the full composer to add CC recipients"
+            >Add CC</button>
+        </xpath>
+    </t>
+</templates>

@@ -1,0 +1,34 @@
+<odoo noupdate="1">
+    <record id="cron_ses_poll" model="ir.cron">
+        <field name="name">SES: process delivery events</field>
+        <field name="model_id" ref="model_mail_ses_connection" />
+        <field name="state">code</field>
+        <field name="code">model._cron_poll()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">minutes</field>
+    </record>
+    <record id="cron_ses_sync" model="ir.cron">
+        <field name="name">SES: import suppressed addresses</field>
+        <field name="model_id" ref="model_mail_ses_connection" />
+        <field name="state">code</field>
+        <field name="code">model._cron_sync()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">hours</field>
+    </record>
+    <record id="cron_ses_publish" model="ir.cron">
+        <field name="name">SES: synchronize new blocks</field>
+        <field name="model_id" ref="model_mail_ses_suppression" />
+        <field name="state">code</field>
+        <field name="code">model._cron_publish()</field>
+        <field name="interval_number">5</field>
+        <field name="interval_type">minutes</field>
+    </record>
+    <record id="cron_ses_retention" model="ir.cron">
+        <field name="name">SES: expire delivery history</field>
+        <field name="model_id" ref="model_mail_ses_attempt" />
+        <field name="state">code</field>
+        <field name="code">model._cron_retention()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+    </record>
+</odoo>

@@ -1,0 +1,17 @@
+<odoo>
+    <record id="mail_compose_message_form" model="ir.ui.view">
+        <field name="name">mail.compose.message.cc</field>
+        <field name="model">mail.compose.message</field>
+        <field name="inherit_id" ref="mail.email_compose_message_wizard_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='partner_ids']/.." position="after">
+                <field
+                    name="cc_partner_ids"
+                    widget="many2many_tags_email"
+                    context="{'force_email': True, 'show_email': True}"
+                    invisible="composition_mode != 'comment' or composition_batch or subtype_is_log"
+                />
+            </xpath>
+        </field>
+    </record>
+</odoo>
