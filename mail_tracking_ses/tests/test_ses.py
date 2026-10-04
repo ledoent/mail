@@ -258,8 +258,14 @@ class TestSES(TransactionCase):
         self.assertTrue(result)
 
     def test_uncertain_send_is_not_automatically_retried(self):
-        with self.assertRaises(RuntimeError):
+        # Odoo assertRaises rolls back its savepoint, which would erase the
+        # test-cursor journal. Preserve it to exercise retry protection.
+        try:
             self.send_one(fail=True)
+        except RuntimeError as error:
+            self.assertIn("Lost connection", str(error))
+        else:
+            self.fail("Expected an ambiguous transport failure")
         with self.assertRaises(UserError):
             self.send_one()
 
